@@ -72,6 +72,14 @@ jobs:
         env:
           DATABASE_URL: ${{ vars.DATABASE_URL }}
       
+      # Stop any existing PM2 process before starting a new one
+      - name: Stop existing PM2 process
+        run: |
+          echo "Stopping any existing frontend-dev process..."
+          pm2 stop frontend-dev || echo "No existing process found"
+          pm2 delete frontend-dev || echo "No process to delete"
+        continue-on-error: true
+      
       - name: Start development server with PM2
         run: |
           pm2 start npm --name "frontend-dev" -- run dev

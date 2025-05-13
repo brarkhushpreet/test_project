@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
-import { env } from "~/env";
 import { checkAndUpdateQuota } from "~/lib/quota";
 import { db } from "~/server/db";
 import ytdl from "ytdl-core";
+
+// API endpoint for analysis
+const API_ENDPOINT = "http://ec2-13-232-39-77.ap-south-1.compute.amazonaws.com";
 
 // Increase payload size limit to 50MB
 export const config = {
@@ -13,25 +15,6 @@ export const config = {
   },
 };
 
-// Dummy data that mimics the response shown in the screenshot
-const dummyAnalysisData = {
-  "utterances": [
-    {
-      "emotions": [
-        { "confidence": 0.6440509557723999, "label": "surprise" },
-        { "confidence": 0.11153298644830029, "label": "disgust" },
-        { "confidence": 0.09780463218688648, "label": "sadness" }
-      ],
-      "end_time": 2.36,
-      "sentiments": [
-        { "confidence": 0.5041074416931, "label": "negative" }
-      ],
-      "start_time": 0.0,
-      "text": "Oh my god, he's lost to this totally"
-    }
-  ]
-};
-
 export async function POST(req: Request) {
   try {
     // Get API key from the header
@@ -39,7 +22,7 @@ export async function POST(req: Request) {
     if (!apiKey) {
       return NextResponse.json({ error: "API key required" }, { status: 401 });
     }
-
+    
     // Find the user by API key
     const quota = await db.apiQuota.findUnique({
       where: {
@@ -49,11 +32,11 @@ export async function POST(req: Request) {
         userId: true,
       },
     });
-
+    
     if (!quota) {
       return NextResponse.json({ error: "Invalid API key" }, { status: 401 });
     }
-
+    
     // Check if user has quota
     const hasQuota = await checkAndUpdateQuota(quota.userId, true);
     if (!hasQuota) {
@@ -62,10 +45,10 @@ export async function POST(req: Request) {
         { status: 429 },
       );
     }
-
-    // Check if the request is JSON (YouTube URL) or FormData (direct file upload)
+    
+    let analysisData;
     const contentType = req.headers.get("content-type") || "";
-
+    
     if (contentType.includes("application/json")) {
       // Handle YouTube URL
       const { youtubeUrl } = await req.json();
@@ -76,8 +59,8 @@ export async function POST(req: Request) {
           { status: 400 },
         );
       }
-
-      // Validate URL format (simple check)
+      
+      // Validate URL format
       try {
         new URL(youtubeUrl);
       } catch (e) {
@@ -86,11 +69,27 @@ export async function POST(req: Request) {
           { status: 400 },
         );
       }
+      
+      // Call the analysis API with YouTube URL
+      const response = await fetch(`${API_ENDPOINT}/predict`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ youtubeUrl }),
+      });
+      
+      if (!response.ok) {
+        throw new Error(`API responded with status: ${response.status}`);
+      }
+      
+      analysisData = await response.json();
+      
     } else {
       // Handle direct file upload
       const formData = await req.formData();
       const uploadedFile = formData.get("video");
-
+      
       if (!uploadedFile || !(uploadedFile instanceof File)) {
         return NextResponse.json(
           { error: "Video file is required" },
@@ -98,7 +97,7 @@ export async function POST(req: Request) {
         );
       }
       
-      // Check file type (optional)
+      // Check file type
       const fileName = uploadedFile.name.toLowerCase();
       if (!fileName.endsWith('.mp4') && !fileName.endsWith('.mov') && !fileName.endsWith('.avi')) {
         return NextResponse.json(
@@ -106,8 +105,24 @@ export async function POST(req: Request) {
           { status: 400 },
         );
       }
+      
+      // Create new FormData to forward the file
+      const apiFormData = new FormData();
+      apiFormData.append('video', uploadedFile);
+      
+      // Call the analysis API with the file
+      const response = await fetch(`${API_ENDPOINT}/predict`, {
+        method: 'POST',
+        body: apiFormData,
+      });
+      
+      if (!response.ok) {
+        throw new Error(`API responded with status: ${response.status}`);
+      }
+      
+      analysisData = await response.json();
     }
-
+    
     // Create a record in the database for tracking
     await db.videoFile.create({
       data: {
@@ -116,12 +131,10 @@ export async function POST(req: Request) {
         analyzed: true,
       },
     });
-
-    // Simulate processing delay (500ms)
-    await new Promise(resolve => setTimeout(resolve, 500));
-
-    // Return dummy data
-    return NextResponse.json({ analysis: dummyAnalysisData });
+    
+    // Return the analysis data from the external API
+    return NextResponse.json({ analysis: analysisData });
+    
   } catch (error) {
     console.error("Analysis error:", error);
     return NextResponse.json(
