@@ -1,0 +1,37 @@
+name: Frontend Dev
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - '**'
+      - '.github/workflows/frontend.yml'
+
+jobs:
+  dev:
+    runs-on: [ self-hosted, frontend ]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js 22.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          cache: 'npm'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+        env:
+          NODE_OPTIONS: "--max-old-space-size=4096"
+
+      - name: Run development server
+        run: npm run dev
+        env:
+          DATABASE_URL: ${{ vars.DATABASE_URL }}
+          AUTH_SECRET: ${{ vars.AUTH_SECRET }}
+          GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ vars.GOOGLE_CLIENT_SECRET }}
+          API_ENDPOINT: ${{ vars.API_ENDPOINT }}
+          GEMINI_API_KEY: ${{ vars.GEMINI_API_KEY }}
