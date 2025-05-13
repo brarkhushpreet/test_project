@@ -190,7 +190,7 @@ function UploadVideo({ apiKey, onAnalysis }: UploadVideoProps) {
   return (
     <div className="flex w-full flex-col gap-2">
       <div className="flex justify-end mb-2">
-        <button
+        {/* <button
           type="button"
           onClick={toggleInputMethod}
           className="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1"
@@ -200,7 +200,7 @@ function UploadVideo({ apiKey, onAnalysis }: UploadVideoProps) {
           ) : (
             <>Use YouTube URL instead</>  
           )}
-        </button>
+        </button> */}
       </div>
 
       {showYoutubeInput ? (
