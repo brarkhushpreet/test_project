@@ -10,27 +10,62 @@ on:
 jobs:
   dev:
     runs-on: [ self-hosted, frontend ]
-
+    
     steps:
       - uses: actions/checkout@v4
-
+      
       - name: Use Node.js 22.x
         uses: actions/setup-node@v4
         with:
           node-version: 22.x
           cache: 'npm'
           cache-dependency-path: './package-lock.json'
-
+      
+      # Verify that environment variables are available
+      - name: Debug - Check if environment variables are available
+        run: |
+          echo "Checking environment variables availability..."
+          echo "DATABASE_URL is set: ${{ vars.DATABASE_URL != '' }}"
+          echo "AUTH_SECRET is set: ${{ vars.AUTH_SECRET != '' }}"
+          echo "GOOGLE_CLIENT_ID is set: ${{ vars.GOOGLE_CLIENT_ID != '' }}"
+          echo "GOOGLE_CLIENT_SECRET is set: ${{ vars.GOOGLE_CLIENT_SECRET != '' }}"
+          echo "API_ENDPOINT is set: ${{ vars.API_ENDPOINT != '' }}"
+          echo "GEMINI_API_KEY is set: ${{ vars.GEMINI_API_KEY != '' }}"
+      
       - name: Install dependencies
         run: npm ci --legacy-peer-deps
         env:
           NODE_OPTIONS: "--max-old-space-size=4096"
-
+      
       - name: Install PM2 globally
         run: npm install -g pm2
-
+      
+      # Create a .env file to verify variables are passed correctly
+      - name: Create temporary env file for verification
+        run: |
+          echo "Creating temporary .env file to verify variables..."
+          echo "DATABASE_URL=${DATABASE_URL}" >> .env.verify
+          echo "AUTH_SECRET=${AUTH_SECRET}" >> .env.verify
+          echo "GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}" >> .env.verify
+          echo "GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}" >> .env.verify
+          echo "API_ENDPOINT=${API_ENDPOINT}" >> .env.verify
+          echo "GEMINI_API_KEY=${GEMINI_API_KEY}" >> .env.verify
+          echo "Environment variables saved to .env.verify"
+          
+          # Check if .env file has values (redacting the actual values)
+          cat .env.verify | sed 's/\(.*=\).*/\1[REDACTED]/' || echo "Failed to create .env.verify file"
+        env:
+          DATABASE_URL: ${{ vars.DATABASE_URL }}
+          AUTH_SECRET: ${{ vars.AUTH_SECRET }}
+          GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ vars.GOOGLE_CLIENT_SECRET }}
+          API_ENDPOINT: ${{ vars.API_ENDPOINT }}
+          GEMINI_API_KEY: ${{ vars.GEMINI_API_KEY }}
+      
       - name: Start development server with PM2
-        run: pm2 start npm --name "frontend-dev" -- run dev
+        run: |
+          pm2 start npm --name "frontend-dev" -- run dev
+          pm2 save
         env:
           DATABASE_URL: ${{ vars.DATABASE_URL }}
           AUTH_SECRET: ${{ vars.AUTH_SECRET }}
