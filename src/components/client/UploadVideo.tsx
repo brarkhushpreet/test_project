@@ -198,7 +198,7 @@ function UploadVideo({ apiKey, onAnalysis }: UploadVideoProps) {
           {showYoutubeInput ? (
             <>Upload a video file instead</>
           ) : (
-            <>Use YouTube URL instead</>
+            <>Use YouTube URL instead</> 
           )}
         </button>
       </div>
