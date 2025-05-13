@@ -122,7 +122,7 @@ export function Inference({ quota }: InferenceProps) {
             Upload a video to see overall analysis
           </span>
         </div>
-      )}
+      )} 
 
       <h2 className="mt-2 text-sm text-slate-800">Analysis of utterances</h2>
       {analysis ? (
